@@ -32,3 +32,4 @@
 .\objects\main.o: .\Hardware\Buzzer.h
 .\objects\main.o: .\Hardware\Door.h
 .\objects\main.o: .\Hardware\Key.h
+.\objects\main.o: .\Hardware\OLED.h

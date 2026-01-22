@@ -3,21 +3,24 @@
 #include "Buzzer.h"
 #include "Door.h"
 #include "Key.h"
+#include "OLED.h"
 
 //定义三个状态：撤防（安全）、布防（警戒）、报警（抓人）
 typedef enum {
 	STATE_DISARMED = 0,
 	STATE_ARMED,
-	STATE_ALAREMING
+	STATE_ALARMING
 } SecurityState_t;
 
 SecurityState_t CurrentState = STATE_DISARMED;
+uint8_t StateChanged = 1;
 
 int main(void)
 {
 	Buzzer_Init();
 	Door_Init();
 	Key_Init();
+	OLED_Init();
 	
 	Buzzer_OFF();
 	
@@ -29,6 +32,8 @@ int main(void)
 	GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
 	GPIO_Init(GPIOC, &GPIO_InitStructure);
 	GPIO_SetBits(GPIOC, GPIO_Pin_13);
+	
+	uint32_t AlarmTimer = 0;
 	
 	while(1)
 	{
@@ -48,6 +53,7 @@ int main(void)
 				// 响一声长，提示撤防
 				Buzzer_ON(); Delay_ms(500); Buzzer_OFF();
 			}
+			StateChanged = 1;
 		}
 		
 		// ================= PART 2: 根据状态干活 (状态机) =================
@@ -63,12 +69,17 @@ int main(void)
 				
 				if (Door_GetState() == 1) // 如果门开了
 				{
-					CurrentState = STATE_ALAREMING; // 切换状态
+					CurrentState = STATE_ALARMING; // 切换状态
+					StateChanged = 1;
 				}
 				break; 
 				
-			case STATE_ALAREMING: //【报警模式】
-				// 狂闪灯 + 狂叫
+			case STATE_ALARMING: //【报警模式】
+				AlarmTimer ++;
+				if (AlarmTimer >= 10)
+				{
+				
+			    // 狂闪灯 + 狂叫
 				Buzzer_Turn();
 				
 				// 翻转 LED 灯状态 (闪烁)
@@ -77,8 +88,30 @@ int main(void)
 				else
 					GPIO_ResetBits(GPIOC, GPIO_Pin_13);
 				
-				Delay_ms(100); // 闪烁频率
+				}
 				break;
 		}
+		// ================= PART 3: 显示逻辑 =================
+		if (StateChanged == 1)
+		{
+			OLED_Clear();
+			switch (CurrentState)
+			{
+				case STATE_DISARMED:
+					OLED_ShowString(1, 1, "Mode: DISARMED");
+					OLED_ShowString(2, 1, "Safe & Sound  ");
+					break;
+				case STATE_ARMED:
+					OLED_ShowString(1, 1, "Mode: STATE_ARMED");
+					OLED_ShowString(2, 1, "Watching You     ");
+					break;
+				case STATE_ALARMING:
+					OLED_ShowString(1, 1, "Mode: ALARMING");
+					OLED_ShowString(2, 1, "POLICE COMING ");
+					break;
+			}
+			StateChanged = 0;
+		}
+		Delay_ms(10);
 	}
 }		
